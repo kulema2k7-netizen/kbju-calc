@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NutriPlan — Калькулятор КБЖУ</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2563eb">
@@ -82,7 +82,7 @@
     <!-- Блок 2: Прогресс за день -->
     <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
       <h2 class="text-lg font-bold mb-4">📊 Итоги за день</h2>
-      
+
       <div class="mb-4">
         <div class="flex justify-between text-sm font-medium mb-1">
           <span>Калории</span>
@@ -159,19 +159,19 @@
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
         <div>
           <label class="text-[11px] text-slate-400 pl-1">Ккал на 100г</label>
-          <input type="number" step="0.1" id="new-kcal" placeholder="Ккал" class="w-full p-2 border rounded-xl bg-slate-50">
+          <input type="number" step="0.1" id="new-kcal" oninput="markTouched()" placeholder="Ккал" class="w-full p-2 border rounded-xl bg-slate-50">
         </div>
         <div>
           <label class="text-[11px] text-slate-400 pl-1">Белки (г)</label>
-          <input type="number" step="0.1" id="new-p" placeholder="Белки" class="w-full p-2 border rounded-xl bg-slate-50">
+          <input type="number" step="0.1" id="new-p" oninput="markTouched()" placeholder="Белки" class="w-full p-2 border rounded-xl bg-slate-50">
         </div>
         <div>
           <label class="text-[11px] text-slate-400 pl-1">Жиры (г)</label>
-          <input type="number" step="0.1" id="new-f" placeholder="Жиры" class="w-full p-2 border rounded-xl bg-slate-50">
+          <input type="number" step="0.1" id="new-f" oninput="markTouched()" placeholder="Жиры" class="w-full p-2 border rounded-xl bg-slate-50">
         </div>
         <div>
           <label class="text-[11px] text-slate-400 pl-1">Углеводы (г)</label>
-          <input type="number" step="0.1" id="new-c" placeholder="Углеводы" class="w-full p-2 border rounded-xl bg-slate-50">
+          <input type="number" step="0.1" id="new-c" oninput="markTouched()" placeholder="Углеводы" class="w-full p-2 border rounded-xl bg-slate-50">
         </div>
       </div>
 
@@ -183,6 +183,8 @@
   </main>
 
   <script>
+    var STORAGE_KEY = 'nutriplan_state_v1';
+
     var defaultFoods = [
       { id: 1, name: 'Куриная грудка (филе)', kcal: 113, p: 23.6, f: 1.9, c: 0.4 },
       { id: 2, name: 'Говядина тушеная/отварная', kcal: 187, p: 25.8, f: 9.5, c: 0 },
@@ -247,7 +249,10 @@
       { name: 'Чай с 2 ложками сахара', kcal: 32, p: 0, f: 0, c: 8.0 }
     ];
 
+    var MEAL_NAMES = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
+
     var currentSuggestions = [];
+    var fieldsTouched = false; // пользователь вручную правил поля КБЖУ
 
     var state = {
       profile: { gender: 'male', age: 35, height: 188, weight: 85, activity: 1.375, goal: 1 },
@@ -256,9 +261,38 @@
       log: { breakfast: [], lunch: [], dinner: [], snack: [] }
     };
 
+    // ---------- Утилиты ----------
+
+    function $(id) { return document.getElementById(id); }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, function(ch) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+      });
+    }
+
+    function round1(x) { return Math.round(x * 10) / 10; }
+
+    function num(id, fallback) {
+      var v = parseFloat($(id).value);
+      return isFinite(v) ? v : (fallback || 0);
+    }
+
+    function persist() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          profile: state.profile,
+          foods: state.foods,
+          log: state.log
+        }));
+      } catch (e) {}
+    }
+
+    // ---------- Инициализация ----------
+
     function init() {
       try {
-        var saved = localStorage.getItem('nutriplan_state_v1');
+        var saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           var parsed = JSON.parse(saved);
           if (parsed && parsed.profile) state.profile = parsed.profile;
@@ -280,20 +314,214 @@
         console.warn('Восстановлены настройки по умолчанию');
       }
 
-      document.getElementById('gender').value = state.profile.gender || 'male';
-      document.getElementById('age').value = state.profile.age || 35;
-      document.getElementById('height').value = state.profile.height || 188;
-      document.getElementById('weight').value = state.profile.weight || 85;
-      document.getElementById('activity').value = state.profile.activity || 1.375;
-      document.getElementById('goal').value = state.profile.goal || 1;
+      $('gender').value = state.profile.gender || 'male';
+      $('age').value = state.profile.age || 35;
+      $('height').value = state.profile.height || 188;
+      $('weight').value = state.profile.weight || 85;
+      $('activity').value = state.profile.activity || 1.375;
+      $('goal').value = state.profile.goal || 1;
 
       renderFoodSelect();
+      setMeal(state.currentMeal);
+    }
+
+    // ---------- Профиль и нормы ----------
+
+    function saveProfile() {
+      state.profile = {
+        gender: $('gender').value,
+        age: num('age', 35),
+        height: num('height', 188),
+        weight: num('weight', 85),
+        activity: parseFloat($('activity').value) || 1.375,
+        goal: parseFloat($('goal').value) || 1
+      };
+      persist();
       updateAll();
+    }
+
+    function calcNorms() {
+      var p = state.profile;
+      // Формула Миффлина — Сан-Жеора
+      var bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (p.gender === 'male' ? 5 : -161);
+      var kcal = Math.max(0, Math.round(bmr * p.activity * p.goal));
+      var prot = Math.round(p.weight * 1.8);
+      var fat = Math.round((kcal * 0.25) / 9);
+      var carb = Math.max(0, Math.round((kcal - prot * 4 - fat * 9) / 4));
+      return { kcal: kcal, p: prot, f: fat, c: carb };
+    }
+
+    function updateBmi() {
+      var p = state.profile;
+      var badge = $('bmi-badge');
+      if (!p.height || !p.weight) {
+        badge.textContent = 'ИМТ: --';
+        return;
+      }
+      var m = p.height / 100;
+      var bmi = p.weight / (m * m);
+      var label, cls;
+      if (bmi < 18.5) { label = 'дефицит'; cls = 'bg-sky-100 text-sky-800'; }
+      else if (bmi < 25) { label = 'норма'; cls = 'bg-emerald-100 text-emerald-800'; }
+      else if (bmi < 30) { label = 'избыток'; cls = 'bg-amber-100 text-amber-800'; }
+      else { label = 'ожирение'; cls = 'bg-red-100 text-red-800'; }
+      badge.textContent = 'ИМТ: ' + bmi.toFixed(1) + ' (' + label + ')';
+      badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full ' + cls;
+    }
+
+    // ---------- Итоги за день ----------
+
+    function dayTotals() {
+      var t = { kcal: 0, p: 0, f: 0, c: 0 };
+      for (var meal in state.log) {
+        var arr = state.log[meal];
+        for (var i = 0; i < arr.length; i++) {
+          t.kcal += arr[i].kcal;
+          t.p += arr[i].p;
+          t.f += arr[i].f;
+          t.c += arr[i].c;
+        }
+      }
+      return t;
+    }
+
+    function setBar(id, cur, norm, overColor) {
+      var bar = $(id);
+      var pct = norm > 0 ? Math.min(100, (cur / norm) * 100) : 0;
+      bar.style.width = pct + '%';
+      if (overColor) {
+        bar.classList.toggle('bg-red-500', norm > 0 && cur > norm * 1.05);
+        bar.classList.toggle('bg-blue-600', !(norm > 0 && cur > norm * 1.05));
+      }
+    }
+
+    function updateAll() {
+      var norm = calcNorms();
+      var tot = dayTotals();
+
+      $('norm-kcal').textContent = norm.kcal;
+      $('norm-p').textContent = norm.p;
+      $('norm-f').textContent = norm.f;
+      $('norm-c').textContent = norm.c;
+
+      $('cur-kcal').textContent = Math.round(tot.kcal);
+      $('cur-p').textContent = round1(tot.p);
+      $('cur-f').textContent = round1(tot.f);
+      $('cur-c').textContent = round1(tot.c);
+
+      setBar('bar-kcal', tot.kcal, norm.kcal, true);
+      setBar('bar-p', tot.p, norm.p, false);
+      setBar('bar-f', tot.f, norm.f, false);
+      setBar('bar-c', tot.c, norm.c, false);
+
+      updateBmi();
+      renderMealList();
+    }
+
+    // ---------- Дневник ----------
+
+    function setMeal(meal) {
+      state.currentMeal = meal;
+      for (var key in MEAL_NAMES) {
+        var tab = $('tab-' + key);
+        tab.classList.toggle('tab-active', key === meal);
+        tab.classList.toggle('text-slate-600', key !== meal);
+      }
+      renderMealList();
+    }
+
+    function renderFoodSelect(selectId) {
+      var sel = $('food-select');
+      var html = '';
+      for (var i = 0; i < state.foods.length; i++) {
+        var f = state.foods[i];
+        html += '<option value="' + esc(f.id) + '">' + esc(f.name) + ' — ' + esc(f.kcal) + ' ккал</option>';
+      }
+      sel.innerHTML = html;
+      if (selectId !== undefined) sel.value = String(selectId);
+    }
+
+    function addEntry() {
+      var id = $('food-select').value;
+      var grams = num('food-grams', 0);
+      if (grams <= 0) {
+        alert('Введите вес порции в граммах.');
+        return;
+      }
+      var food = null;
+      for (var i = 0; i < state.foods.length; i++) {
+        if (String(state.foods[i].id) === String(id)) { food = state.foods[i]; break; }
+      }
+      if (!food) return;
+
+      var k = grams / 100;
+      state.log[state.currentMeal].push({
+        name: food.name,
+        grams: grams,
+        kcal: food.kcal * k,
+        p: food.p * k,
+        f: food.f * k,
+        c: food.c * k
+      });
+      persist();
+      updateAll();
+    }
+
+    function removeEntry(meal, index) {
+      state.log[meal].splice(index, 1);
+      persist();
+      updateAll();
+    }
+
+    function renderMealList() {
+      var meal = state.currentMeal;
+      var arr = state.log[meal];
+      var box = $('meal-list');
+
+      if (arr.length === 0) {
+        box.innerHTML = '<div class="text-slate-400 text-center py-3">В разделе «' + MEAL_NAMES[meal] + '» пока пусто</div>';
+        return;
+      }
+
+      var html = '';
+      var sum = { kcal: 0, p: 0, f: 0, c: 0 };
+      for (var i = 0; i < arr.length; i++) {
+        var e = arr[i];
+        sum.kcal += e.kcal; sum.p += e.p; sum.f += e.f; sum.c += e.c;
+        html += '<div class="flex justify-between items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">' +
+          '<div class="min-w-0">' +
+            '<div class="font-medium truncate">' + esc(e.name) + ' <span class="text-slate-400 font-normal">· ' + esc(e.grams) + ' г</span></div>' +
+            '<div class="text-xs text-slate-500">' + Math.round(e.kcal) + ' ккал · Б ' + round1(e.p) + ' · Ж ' + round1(e.f) + ' · У ' + round1(e.c) + '</div>' +
+          '</div>' +
+          '<button type="button" onclick="removeEntry(\'' + meal + '\',' + i + ')" class="text-slate-400 hover:text-red-600 text-lg px-2" aria-label="Удалить">✕</button>' +
+        '</div>';
+      }
+      html += '<div class="text-xs text-slate-600 text-right pt-1">Итого: <b>' + Math.round(sum.kcal) + ' ккал</b> · Б ' + round1(sum.p) + ' · Ж ' + round1(sum.f) + ' · У ' + round1(sum.c) + '</div>';
+      box.innerHTML = html;
+    }
+
+    function resetAll() {
+      if (!confirm('Очистить все записи за сегодня?')) return;
+      state.log = { breakfast: [], lunch: [], dinner: [], snack: [] };
+      persist();
+      updateAll();
+    }
+
+    // ---------- Свой продукт / поиск ----------
+
+    function markTouched() { fieldsTouched = true; }
+
+    function fillFields(name, kcal, p, f, c, setName) {
+      if (setName) $('new-name').value = name;
+      $('new-kcal').value = kcal;
+      $('new-p').value = p;
+      $('new-f').value = f;
+      $('new-c').value = c;
     }
 
     function onTypeProduct(query) {
       var q = (query || '').trim().toLowerCase();
-      var box = document.getElementById('search-results');
+      var box = $('search-results');
 
       if (q.length < 2) {
         box.classList.add('hidden');
@@ -305,8 +533,11 @@
       });
 
       if (matches.length > 0) {
-        var best = matches[0];
-        fillFields(best.name, best.kcal, best.p, best.f, best.c, false);
+        // Не затираем значения, которые пользователь уже ввёл руками
+        if (!fieldsTouched) {
+          var best = matches[0];
+          fillFields(best.name, best.kcal, best.p, best.f, best.c, false);
+        }
         renderSuggestions(matches, '⚡ Найдено в быстрой базе (нажмите для выбора):');
       } else {
         box.innerHTML = '<div class="p-2 text-slate-500">В быстрой базе не найдено. Нажмите <b>«🌐 Найти в сети»</b> справа!</div>';
@@ -315,9 +546,9 @@
     }
 
     async function searchOnline() {
-      var query = document.getElementById('new-name').value.trim();
-      var box = document.getElementById('search-results');
-      var btn = document.getElementById('btn-online');
+      var query = $('new-name').value.trim();
+      var box = $('search-results');
+      var btn = $('btn-online');
 
       if (!query) {
         alert('Сначала введите название продукта или блюда!');
@@ -356,7 +587,6 @@
         }
 
         if (items.length > 0) {
-          fillFields(items[0].name, items[0].kcal, items[0].p, items[0].f, items[0].c, false);
           renderSuggestions(items, '🌐 Найдено в интернете (нажмите на нужный вариант):');
         } else {
           box.innerHTML = '<div class="p-2 text-amber-700">В интернет-базе точного совпадения не нашлось. Попробуйте ввести название проще (например: «суп», «картофель», «котлета»).</div>';
@@ -371,12 +601,63 @@
 
     function renderSuggestions(list, title) {
       currentSuggestions = list;
-      var box = document.getElementById('search-results');
+      var box = $('search-results');
       box.classList.remove('hidden');
       var html = '<div class="text-[11px] font-bold text-slate-400 px-2 py-1">' + title + '</div>';
       for (var i = 0; i < list.length; i++) {
         var item = list[i];
         html += '<div onclick="selectSuggestionByIndex(' + i + ')" class="p-2 rounded-lg hover:bg-blue-50 cursor-pointer flex justify-between items-center transition border border-transparent hover:border-blue-100">' +
-          '<span class="font-medium text-slate-700">' + item.name + '</span>' +
-          '<span class="text-slate-500 whitespace-nowrap ml-2"><b>' + item.kcal + ' ккал</b> (Б:' + item.p + ' Ж:' + item.f + ' У:' + item.c + ')</span>' +
-        '</div
+          '<span class="font-medium text-slate-700">' + esc(item.name) + '</span>' +
+          '<span class="text-slate-500 whitespace-nowrap ml-2"><b>' + esc(item.kcal) + ' ккал</b> (Б:' + esc(item.p) + ' Ж:' + esc(item.f) + ' У:' + esc(item.c) + ')</span>' +
+        '</div>';
+      }
+      box.innerHTML = html;
+    }
+
+    function selectSuggestionByIndex(i) {
+      var item = currentSuggestions[i];
+      if (!item) return;
+      fillFields(item.name, item.kcal, item.p, item.f, item.c, true);
+      fieldsTouched = false;
+      $('search-results').classList.add('hidden');
+    }
+
+    function addCustomFood() {
+      var name = $('new-name').value.trim();
+      var kcalRaw = $('new-kcal').value;
+      var kcal = parseFloat(kcalRaw);
+
+      if (!name) {
+        alert('Введите название продукта.');
+        return;
+      }
+      if (!isFinite(kcal) || kcal < 0) {
+        alert('Укажите калорийность на 100 г.');
+        return;
+      }
+
+      var id = 'c' + Date.now();
+      state.foods.push({
+        id: id,
+        name: name,
+        kcal: kcal,
+        p: num('new-p', 0),
+        f: num('new-f', 0),
+        c: num('new-c', 0)
+      });
+      persist();
+      renderFoodSelect(id);
+
+      $('new-name').value = '';
+      $('new-kcal').value = '';
+      $('new-p').value = '';
+      $('new-f').value = '';
+      $('new-c').value = '';
+      $('search-results').classList.add('hidden');
+      fieldsTouched = false;
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -81,7 +81,7 @@
 
     <!-- Блок 2: Прогресс за день -->
     <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-      <h2 class="text-lg font-bold mb-4">📊 Итоги за день</h2>
+      <h2 class="text-lg font-bold mb-4">📊 Итоги за день <span id="summary-date" class="text-sm font-normal text-slate-400"></span></h2>
 
       <div class="mb-4">
         <div class="flex justify-between text-sm font-medium mb-1">
@@ -120,7 +120,14 @@
 
     <!-- Блок 3: Дневник питания -->
     <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-      <h2 class="text-lg font-bold mb-3">🍽 Рацион по приёмам пищи</h2>
+      <div class="flex justify-between items-center gap-2 mb-3">
+        <h2 class="text-lg font-bold">🍽 Рацион</h2>
+        <div class="flex items-center gap-1">
+          <button type="button" id="day-prev" onclick="shiftDay(-1)" class="w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 transition text-sm" aria-label="Предыдущий день">◀</button>
+          <button type="button" id="day-label" onclick="goToday()" class="px-3 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 transition text-sm font-medium whitespace-nowrap">Сегодня</button>
+          <button type="button" id="day-next" onclick="shiftDay(1)" class="w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 transition text-sm disabled:opacity-30" aria-label="Следующий день">▶</button>
+        </div>
+      </div>
 
       <div class="grid grid-cols-4 gap-1.5 bg-slate-100 p-1 rounded-xl mb-4 text-xs sm:text-sm font-medium">
         <button type="button" onclick="setMeal('breakfast')" id="tab-breakfast" class="py-2 rounded-lg transition tab-active">Завтрак</button>
@@ -178,6 +185,15 @@
       <button type="button" onclick="addCustomFood()" class="mt-3 w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition">
         Сохранить продукт в мой список
       </button>
+    </section>
+
+    <!-- Блок: Последние 7 дней -->
+    <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-base font-bold">📅 Последние 7 дней</h2>
+        <span id="week-avg" class="text-xs text-slate-500"></span>
+      </div>
+      <div id="week-list" class="space-y-1.5 text-sm"></div>
     </section>
 
     <!-- Блок 5: Резервная копия -->
@@ -270,7 +286,10 @@
       profile: { gender: 'male', age: 35, height: 188, weight: 85, activity: 1.375, goal: 1 },
       currentMeal: 'breakfast',
       foods: defaultFoods.slice(),
-      log: { breakfast: [], lunch: [], dinner: [], snack: [] }
+      days: {},                 // { 'YYYY-MM-DD': { breakfast: [], lunch: [], dinner: [], snack: [] } }
+      selectedDate: '',
+      todayKey: '',
+      log: { breakfast: [], lunch: [], dinner: [], snack: [] } // дневник выбранного дня
     };
 
     // ---------- Утилиты ----------
@@ -295,7 +314,7 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           profile: state.profile,
           foods: state.foods,
-          log: state.log
+          days: state.days
         }));
       } catch (e) {}
     }
@@ -313,13 +332,17 @@
           } else {
             state.foods = defaultFoods.slice();
           }
-          if (parsed && parsed.log) {
-            state.log = {
-              breakfast: Array.isArray(parsed.log.breakfast) ? parsed.log.breakfast : [],
-              lunch: Array.isArray(parsed.log.lunch) ? parsed.log.lunch : [],
-              dinner: Array.isArray(parsed.log.dinner) ? parsed.log.dinner : [],
-              snack: Array.isArray(parsed.log.snack) ? parsed.log.snack : []
-            };
+          if (parsed && parsed.days && typeof parsed.days === 'object') {
+            state.days = {};
+            for (var dk in parsed.days) {
+              if (/^\d{4}-\d{2}-\d{2}$/.test(dk)) state.days[dk] = cleanDay(parsed.days[dk]);
+            }
+          } else if (parsed && parsed.log) {
+            // миграция со старой версии: единый дневник становится записями за сегодня
+            var old = cleanDay(parsed.log);
+            var hasOld = false;
+            for (var om in old) { if (old[om].length) hasOld = true; }
+            if (hasOld) state.days[todayKey()] = old;
           }
         }
       } catch (e) {
@@ -334,8 +357,9 @@
       $('goal').value = state.profile.goal || 1;
 
       renderFoodSelect();
+      state.todayKey = todayKey();
+      loadDay(state.todayKey);
       setMeal(state.currentMeal);
-      updateAll();
     }
 
     // ---------- Профиль и нормы ----------
@@ -428,7 +452,9 @@
       setBar('bar-c', tot.c, norm.c, false);
 
       updateBmi();
+      updateDateUI();
       renderMealList();
+      renderWeek();
     }
 
     // ---------- Дневник ----------
@@ -468,6 +494,7 @@
       if (!food) return;
 
       var k = grams / 100;
+      ensureDay();
       state.log[state.currentMeal].push({
         name: food.name,
         grams: grams,
@@ -514,10 +541,10 @@
     }
 
     function resetAll() {
-      if (!confirm('Очистить все записи за сегодня?')) return;
-      state.log = { breakfast: [], lunch: [], dinner: [], snack: [] };
+      if (!confirm('Очистить все записи за выбранный день (' + dateLabel(state.selectedDate) + ')?')) return;
+      delete state.days[state.selectedDate];
       persist();
-      updateAll();
+      loadDay(state.selectedDate);
     }
 
     // ---------- Свой продукт / поиск ----------
@@ -670,6 +697,133 @@
       fieldsTouched = false;
     }
 
+    // ---------- Учёт по дням ----------
+
+    function emptyDay() {
+      return { breakfast: [], lunch: [], dinner: [], snack: [] };
+    }
+
+    function cleanDay(src) {
+      var d = emptyDay();
+      if (!src || typeof src !== 'object') return d;
+      for (var meal in d) {
+        d[meal] = Array.isArray(src[meal]) ? src[meal].filter(validEntry) : [];
+      }
+      return d;
+    }
+
+    function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+    function dateKey(d) {
+      return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+    }
+
+    function parseKey(key) {
+      var p = key.split('-');
+      return new Date(+p[0], +p[1] - 1, +p[2]);
+    }
+
+    function todayKey() { return dateKey(new Date()); }
+
+    function addDays(key, delta) {
+      var d = parseKey(key);
+      d.setDate(d.getDate() + delta);
+      return dateKey(d);
+    }
+
+    function dateLabel(key) {
+      var t = todayKey();
+      var d = parseKey(key);
+      var short = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
+      if (key === t) return 'Сегодня, ' + short;
+      if (key === addDays(t, -1)) return 'Вчера, ' + short;
+      var wd = d.toLocaleDateString('ru-RU', { weekday: 'short' }).replace('.', '');
+      return wd + ', ' + short;
+    }
+
+    function loadDay(key) {
+      state.selectedDate = key;
+      state.log = state.days[key] || emptyDay();
+      updateAll();
+    }
+
+    // Привязывает выбранный день к хранилищу (создаётся только при первой записи)
+    function ensureDay() {
+      if (!state.days[state.selectedDate]) state.days[state.selectedDate] = state.log;
+    }
+
+    function shiftDay(delta) {
+      var next = addDays(state.selectedDate, delta);
+      if (next > todayKey()) return;
+      loadDay(next);
+    }
+
+    function goToday() { loadDay(todayKey()); }
+
+    function selectDay(key) {
+      loadDay(key);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateDateUI() {
+      var label = dateLabel(state.selectedDate);
+      $('day-label').textContent = label;
+      $('summary-date').textContent = '· ' + label;
+      $('day-next').disabled = state.selectedDate >= todayKey();
+    }
+
+    function dayKcal(key) {
+      var day = state.days[key];
+      var sum = 0;
+      if (!day) return 0;
+      for (var meal in day) {
+        for (var i = 0; i < day[meal].length; i++) sum += day[meal][i].kcal;
+      }
+      return sum;
+    }
+
+    function renderWeek() {
+      var norm = calcNorms().kcal;
+      var t = todayKey();
+      var html = '';
+      var total = 0, counted = 0;
+
+      for (var i = 6; i >= 0; i--) {
+        var key = addDays(t, -i);
+        var kcal = dayKcal(key);
+        if (kcal > 0) { total += kcal; counted++; }
+        var pct = norm > 0 ? Math.min(100, (kcal / norm) * 100) : 0;
+        var over = norm > 0 && kcal > norm * 1.05;
+        var selected = key === state.selectedDate;
+        html += '<div onclick="selectDay(\'' + key + '\')" class="cursor-pointer rounded-lg p-2 border ' + (selected ? 'border-blue-300 bg-blue-50' : 'border-transparent hover:bg-slate-50') + '">' +
+          '<div class="flex justify-between text-xs mb-1">' +
+            '<span class="font-medium text-slate-700">' + esc(dateLabel(key)) + '</span>' +
+            '<span class="text-slate-500">' + (kcal > 0 ? Math.round(kcal) + ' / ' + norm + ' ккал' : '—') + '</span>' +
+          '</div>' +
+          '<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">' +
+            '<div class="h-full ' + (over ? 'bg-red-500' : 'bg-blue-600') + '" style="width:' + pct + '%"></div>' +
+          '</div>' +
+        '</div>';
+      }
+
+      $('week-list').innerHTML = html;
+      $('week-avg').textContent = counted > 0 ? 'в среднем ' + Math.round(total / counted) + ' ккал/день' : '';
+    }
+
+    // Новый день: если приложение открыто через полночь или вернулось из фона
+    function checkRollover() {
+      var t = todayKey();
+      if (t === state.todayKey) return;
+      var wasToday = state.selectedDate === state.todayKey;
+      state.todayKey = t;
+      if (wasToday) loadDay(t); else updateAll();
+    }
+
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) checkRollover();
+    });
+    setInterval(checkRollover, 60000);
+
     // ---------- Резервная копия ----------
 
     function backupMsg(text, ok) {
@@ -682,11 +836,11 @@
       try {
         var payload = {
           app: 'nutriplan',
-          version: 1,
+          version: 2,
           exportedAt: new Date().toISOString(),
           profile: state.profile,
           foods: state.foods,
-          log: state.log
+          days: state.days
         };
         var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         var url = URL.createObjectURL(blob);
@@ -723,15 +877,20 @@
       reader.onload = function() {
         try {
           var data = JSON.parse(reader.result);
-          if (!data || data.app !== 'nutriplan' || !data.profile || !Array.isArray(data.foods) || !data.log) {
+          if (!data || data.app !== 'nutriplan' || !data.profile || !Array.isArray(data.foods) || !(data.days || data.log)) {
             throw new Error('format');
           }
           var foods = data.foods.filter(validFood);
           if (foods.length === 0) throw new Error('foods');
 
-          var log = {};
-          for (var meal in MEAL_NAMES) {
-            log[meal] = Array.isArray(data.log[meal]) ? data.log[meal].filter(validEntry) : [];
+          var days = {};
+          if (data.days && typeof data.days === 'object') {
+            for (var dk in data.days) {
+              if (/^\d{4}-\d{2}-\d{2}$/.test(dk)) days[dk] = cleanDay(data.days[dk]);
+            }
+          } else {
+            // старый формат (один день без даты) — записываем как сегодняшний
+            days[todayKey()] = cleanDay(data.log);
           }
 
           if (!confirm('Заменить текущие данные данными из файла?')) return;
@@ -746,7 +905,7 @@
             goal: isFinite(pr.goal) ? +pr.goal : 1
           };
           state.foods = foods;
-          state.log = log;
+          state.days = days;
           persist();
           location.reload();
         } catch (e) {

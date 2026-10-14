@@ -10,7 +10,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
-        navigator.serviceWorker.register('sw.js');
+        navigator.serviceWorker.register('sw.js').catch(function() {});
       });
     }
   </script>
@@ -26,7 +26,7 @@
   <header class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-10">
     <div class="max-w-3xl mx-auto flex justify-between items-center">
       <h1 class="text-xl font-bold tracking-tight">🥗 NutriPlan КБЖУ</h1>
-      <button onclick="resetAll()" class="text-xs bg-blue-700 hover:bg-blue-800 px-3 py-1.5 rounded-lg transition">Сбросить день</button>
+      <button type="button" onclick="resetAll()" class="text-xs bg-blue-700 hover:bg-blue-800 px-3 py-1.5 rounded-lg transition">Сбросить день</button>
     </div>
   </header>
 
@@ -123,17 +123,17 @@
       <h2 class="text-lg font-bold mb-3">🍽 Рацион по приёмам пищи</h2>
 
       <div class="grid grid-cols-4 gap-1.5 bg-slate-100 p-1 rounded-xl mb-4 text-xs sm:text-sm font-medium">
-        <button onclick="setMeal('breakfast')" id="tab-breakfast" class="py-2 rounded-lg transition tab-active">Завтрак</button>
-        <button onclick="setMeal('lunch')" id="tab-lunch" class="py-2 rounded-lg transition">Обед</button>
-        <button onclick="setMeal('dinner')" id="tab-dinner" class="py-2 rounded-lg transition">Ужин</button>
-        <button onclick="setMeal('snack')" id="tab-snack" class="py-2 rounded-lg transition">Перекус</button>
+        <button type="button" onclick="setMeal('breakfast')" id="tab-breakfast" class="py-2 rounded-lg transition tab-active">Завтрак</button>
+        <button type="button" onclick="setMeal('lunch')" id="tab-lunch" class="py-2 rounded-lg transition text-slate-600">Обед</button>
+        <button type="button" onclick="setMeal('dinner')" id="tab-dinner" class="py-2 rounded-lg transition text-slate-600">Ужин</button>
+        <button type="button" onclick="setMeal('snack')" id="tab-snack" class="py-2 rounded-lg transition text-slate-600">Перекус</button>
       </div>
 
       <div class="flex flex-col sm:flex-row gap-2 mb-4">
         <select id="food-select" class="flex-1 p-2.5 border rounded-xl bg-slate-50 text-sm"></select>
         <div class="flex gap-2">
           <input type="number" id="food-grams" value="150" placeholder="Вес (г)" class="w-28 p-2.5 border rounded-xl bg-slate-50 text-sm">
-          <button onclick="addEntry()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-xl text-sm transition flex-1 sm:flex-none">
+          <button type="button" onclick="addEntry()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-xl text-sm transition flex-1 sm:flex-none">
             + Добавить
           </button>
         </div>
@@ -147,15 +147,13 @@
       <h2 class="text-base font-bold mb-1">➕ Добавить блюдо или продукт (на 100 г)</h2>
       <p class="text-xs text-slate-500 mb-3">Начните вводить название (например: <b>картошка жареная</b>, <b>суп куриный</b>, <b>пельмени</b>) — КБЖУ подставится само, либо нажмите «Найти в сети».</p>
 
-      <!-- Поле ввода названия + кнопка поиска в интернете -->
       <div class="flex gap-2 mb-2 relative">
         <input type="text" id="new-name" oninput="onTypeProduct(this.value)" placeholder="Например: Картошка жареная, Суп куриный..." autocomplete="off" class="flex-1 p-2.5 border rounded-xl bg-slate-50 text-sm">
-        <button onclick="searchOnline()" id="btn-online" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-medium px-3.5 py-2.5 rounded-xl transition whitespace-nowrap">
+        <button type="button" onclick="searchOnline()" id="btn-online" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-medium px-3.5 py-2.5 rounded-xl transition whitespace-nowrap">
           🌐 Найти в сети
         </button>
       </div>
 
-      <!-- Подсказки из локального справочника и из интернета -->
       <div id="search-results" class="hidden mb-3 bg-slate-50 border border-slate-200 rounded-xl p-2 max-h-52 overflow-y-auto space-y-1 text-xs"></div>
 
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
@@ -177,7 +175,7 @@
         </div>
       </div>
 
-      <button onclick="addCustomFood()" class="mt-3 w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition">
+      <button type="button" onclick="addCustomFood()" class="mt-3 w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition">
         Сохранить продукт в мой список
       </button>
     </section>
@@ -185,7 +183,7 @@
   </main>
 
   <script>
-    const defaultFoods = [
+    var defaultFoods = [
       { id: 1, name: 'Куриная грудка (филе)', kcal: 113, p: 23.6, f: 1.9, c: 0.4 },
       { id: 2, name: 'Говядина тушеная/отварная', kcal: 187, p: 25.8, f: 9.5, c: 0 },
       { id: 3, name: 'Яйцо куриное (1 шт ≈ 55г)', kcal: 157, p: 12.7, f: 11.5, c: 0.7 },
@@ -202,8 +200,7 @@
       { id: 14, name: 'Масло подсолнечное / оливковое', kcal: 899, p: 0, f: 99.9, c: 0 }
     ];
 
-    // Встроенный умный справочник популярных российских блюд и продуктов (на 100 г)
-    const smartCatalog = [
+    var smartCatalog = [
       { name: 'Картошка жареная (картофель жареный)', kcal: 192, p: 2.8, f: 9.5, c: 24.0 },
       { name: 'Картофельное пюре (с молоком и маслом)', kcal: 106, p: 2.1, f: 4.2, c: 14.7 },
       { name: 'Картошка фри', kcal: 312, p: 3.4, f: 15.0, c: 41.0 },
@@ -247,64 +244,80 @@
       { name: 'Шоколад молочный / темный', kcal: 545, p: 6.5, f: 33.0, c: 55.0 },
       { name: 'Печенье овсяное / сахарное', kcal: 430, p: 6.5, f: 14.5, c: 68.0 },
       { name: 'Кофе с молоком без сахара', kcal: 25, p: 1.2, f: 1.1, c: 2.4 },
-      { name: 'Чай с 2 ложками сахара (на кружку)', kcal: 32, p: 0, f: 0, c: 8.0 }
+      { name: 'Чай с 2 ложками сахара', kcal: 32, p: 0, f: 0, c: 8.0 }
     ];
 
-    let state = {
+    var currentSuggestions = [];
+
+    var state = {
       profile: { gender: 'male', age: 35, height: 188, weight: 85, activity: 1.375, goal: 1 },
       currentMeal: 'breakfast',
-      foods: [...defaultFoods],
+      foods: defaultFoods.slice(),
       log: { breakfast: [], lunch: [], dinner: [], snack: [] }
     };
 
     function init() {
-      const saved = localStorage.getItem('nutriplan_state_v1');
-      if (saved) {
-        try { state = JSON.parse(saved); } catch (e) {}
+      try {
+        var saved = localStorage.getItem('nutriplan_state_v1');
+        if (saved) {
+          var parsed = JSON.parse(saved);
+          if (parsed && parsed.profile) state.profile = parsed.profile;
+          if (parsed && Array.isArray(parsed.foods) && parsed.foods.length > 0) {
+            state.foods = parsed.foods;
+          } else {
+            state.foods = defaultFoods.slice();
+          }
+          if (parsed && parsed.log) {
+            state.log = {
+              breakfast: Array.isArray(parsed.log.breakfast) ? parsed.log.breakfast : [],
+              lunch: Array.isArray(parsed.log.lunch) ? parsed.log.lunch : [],
+              dinner: Array.isArray(parsed.log.dinner) ? parsed.log.dinner : [],
+              snack: Array.isArray(parsed.log.snack) ? parsed.log.snack : []
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('Восстановлены настройки по умолчанию');
       }
-      document.getElementById('gender').value = state.profile.gender;
-      document.getElementById('age').value = state.profile.age;
-      document.getElementById('height').value = state.profile.height;
-      document.getElementById('weight').value = state.profile.weight;
-      document.getElementById('activity').value = state.profile.activity;
-      document.getElementById('goal').value = state.profile.goal;
+
+      document.getElementById('gender').value = state.profile.gender || 'male';
+      document.getElementById('age').value = state.profile.age || 35;
+      document.getElementById('height').value = state.profile.height || 188;
+      document.getElementById('weight').value = state.profile.weight || 85;
+      document.getElementById('activity').value = state.profile.activity || 1.375;
+      document.getElementById('goal').value = state.profile.goal || 1;
 
       renderFoodSelect();
       updateAll();
     }
 
-    // Автопоиск по встроенному справочнику при вводе текста
     function onTypeProduct(query) {
-      const q = query.trim().toLowerCase();
-      const box = document.getElementById('search-results');
+      var q = (query || '').trim().toLowerCase();
+      var box = document.getElementById('search-results');
 
       if (q.length < 2) {
         box.classList.add('hidden');
         return;
       }
 
-      const matches = smartCatalog.filter(item => item.name.toLowerCase().includes(q));
+      var matches = smartCatalog.filter(function(item) {
+        return item.name.toLowerCase().indexOf(q) !== -1;
+      });
 
       if (matches.length > 0) {
-        // Автоматически подставляем первый подходящий вариант в поля!
-        const best = matches[0];
-        document.getElementById('new-kcal').value = best.kcal;
-        document.getElementById('new-p').value = best.p;
-        document.getElementById('new-f').value = best.f;
-        document.getElementById('new-c').value = best.c;
-
+        var best = matches[0];
+        fillFields(best.name, best.kcal, best.p, best.f, best.c, false);
         renderSuggestions(matches, '⚡ Найдено в быстрой базе (нажмите для выбора):');
       } else {
-        box.innerHTML = `<div class="p-2 text-slate-500">В быстрой базе не найдено. Нажмите <b>«🌐 Найти в сети»</b> справа!</div>`;
+        box.innerHTML = '<div class="p-2 text-slate-500">В быстрой базе не найдено. Нажмите <b>«🌐 Найти в сети»</b> справа!</div>';
         box.classList.remove('hidden');
       }
     }
 
-    // Поиск в интернете через открытую мировую базу Open Food Facts
     async function searchOnline() {
-      const query = document.getElementById('new-name').value.trim();
-      const box = document.getElementById('search-results');
-      const btn = document.getElementById('btn-online');
+      var query = document.getElementById('new-name').value.trim();
+      var box = document.getElementById('search-results');
+      var btn = document.getElementById('btn-online');
 
       if (!query) {
         alert('Сначала введите название продукта или блюда!');
@@ -314,37 +327,42 @@
       btn.textContent = '⏳ Ищу...';
       btn.disabled = true;
       box.classList.remove('hidden');
-      box.innerHTML = `<div class="p-2 text-blue-600 font-medium">Запрашиваю данные из интернет-базы...</div>`;
+      box.innerHTML = '<div class="p-2 text-blue-600 font-medium">Запрашиваю данные из интернет-базы...</div>';
 
       try {
-        const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15`;
-        const res = await fetch(url);
-        const data = await res.json();
+        var url = 'https://world.openfoodfacts.org/cgi/search.pl?search_terms=' + encodeURIComponent(query) + '&search_simple=1&action=process&json=1&page_size=15';
+        var res = await fetch(url);
+        var data = await res.json();
 
-        const items = (data.products || [])
-          .filter(p => (p.product_name_ru || p.product_name) && p.nutriments)
-          .map(p => {
-            const n = p.nutriments;
-            const kcal = Math.round(n['energy-kcal_100g'] || (n['energy_100g'] ? n['energy_100g'] / 4.184 : 0));
-            return {
-              name: p.product_name_ru || p.product_name,
-              kcal: kcal,
-              p: +(n.proteins_100g || 0).toFixed(1),
-              f: +(n.fat_100g || 0).toFixed(1),
-              c: +(n.carbohydrates_100g || 0).toFixed(1)
-            };
-          })
-          .filter(item => item.kcal > 0);
+        var products = (data && data.products) ? data.products : [];
+        var items = [];
+
+        for (var i = 0; i < products.length; i++) {
+          var p = products[i];
+          var pName = p.product_name_ru || p.product_name;
+          if (pName && p.nutriments) {
+            var n = p.nutriments;
+            var kcal = Math.round(n['energy-kcal_100g'] || (n['energy_100g'] ? n['energy_100g'] / 4.184 : 0));
+            if (kcal > 0) {
+              items.push({
+                name: pName,
+                kcal: kcal,
+                p: +(n.proteins_100g || 0).toFixed(1),
+                f: +(n.fat_100g || 0).toFixed(1),
+                c: +(n.carbohydrates_100g || 0).toFixed(1)
+              });
+            }
+          }
+        }
 
         if (items.length > 0) {
-          // Сразу заполняем поля первым найденным в интернете результатом
           fillFields(items[0].name, items[0].kcal, items[0].p, items[0].f, items[0].c, false);
           renderSuggestions(items, '🌐 Найдено в интернете (нажмите на нужный вариант):');
         } else {
-          box.innerHTML = `<div class="p-2 text-amber-700">В интернет-базе точного совпадения не нашлось. Попробуйте ввести название проще (например: «суп», «картофель», «котлета»).</div>`;
+          box.innerHTML = '<div class="p-2 text-amber-700">В интернет-базе точного совпадения не нашлось. Попробуйте ввести название проще (например: «суп», «картофель», «котлета»).</div>';
         }
       } catch (e) {
-        box.innerHTML = `<div class="p-2 text-red-600">Ошибка соединения с сетью. Проверьте интернет.</div>`;
+        box.innerHTML = '<div class="p-2 text-red-600">Ошибка соединения с сетью. Проверьте интернет.</div>';
       } finally {
         btn.textContent = '🌐 Найти в сети';
         btn.disabled = false;
@@ -352,29 +370,13 @@
     }
 
     function renderSuggestions(list, title) {
-      const box = document.getElementById('search-results');
+      currentSuggestions = list;
+      var box = document.getElementById('search-results');
       box.classList.remove('hidden');
-      box.innerHTML = `<div class="text-[11px] font-bold text-slate-400 px-2 py-1">${title}</div>` +
-        list.map((item, idx) => `
-          <div onclick='selectSuggestion(${JSON.stringify(item).replace(/'/g, "&#39;")})' 
-               class="p-2 rounded-lg hover:bg-blue-50 cursor-pointer flex justify-between items-center transition border border-transparent hover:border-blue-100">
-            <span class="font-medium text-slate-700">${item.name}</span>
-            <span class="text-slate-500 whitespace-nowrap ml-2"><b>${item.kcal} ккал</b> (Б:${item.p} Ж:${item.f} У:${item.c})</span>
-          </div>
-        `).join('');
-    }
-
-    function selectSuggestion(item) {
-      fillFields(item.name, item.kcal, item.p, item.f, item.c, true);
-      document.getElementById('search-results').classList.add('hidden');
-    }
-
-    function fillFields(name, kcal, p, f, c, overwriteName = true) {
-      if (overwriteName) document.getElementById('new-name').value = name;
-      document.getElementById('new-kcal').value = kcal;
-      document.getElementById('new-p').value = p;
-      document.getElementById('new-f').value = f;
-      document.getElementById('new-c').value = c;
-    }
-
-    function save
+      var html = '<div class="text-[11px] font-bold text-slate-400 px-2 py-1">' + title + '</div>';
+      for (var i = 0; i < list.length; i++) {
+        var item = list[i];
+        html += '<div onclick="selectSuggestionByIndex(' + i + ')" class="p-2 rounded-lg hover:bg-blue-50 cursor-pointer flex justify-between items-center transition border border-transparent hover:border-blue-100">' +
+          '<span class="font-medium text-slate-700">' + item.name + '</span>' +
+          '<span class="text-slate-500 whitespace-nowrap ml-2"><b>' + item.kcal + ' ккал</b> (Б:' + item.p + ' Ж:' + item.f + ' У:' + item.c + ')</span>' +
+        '</div

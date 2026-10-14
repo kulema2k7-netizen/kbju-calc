@@ -180,6 +180,18 @@
       </button>
     </section>
 
+    <!-- Блок 5: Резервная копия -->
+    <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+      <h2 class="text-base font-bold mb-1">💾 Резервная копия</h2>
+      <p class="text-xs text-slate-500 mb-3">Сохраните параметры, свои продукты и дневник в файл. Его можно загрузить обратно на этом или другом устройстве.</p>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <button type="button" onclick="exportBackup()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition">⬇️ Выгрузить данные</button>
+        <button type="button" onclick="$('backup-file').click()" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition">⬆️ Загрузить данные</button>
+        <input type="file" id="backup-file" accept=".json,application/json" class="hidden" onchange="importBackup(this)">
+      </div>
+      <div id="backup-msg" class="text-xs mt-2"></div>
+    </section>
+
   </main>
 
   <script>
@@ -323,6 +335,7 @@
 
       renderFoodSelect();
       setMeal(state.currentMeal);
+      updateAll();
     }
 
     // ---------- Профиль и нормы ----------
@@ -655,6 +668,92 @@
       $('new-c').value = '';
       $('search-results').classList.add('hidden');
       fieldsTouched = false;
+    }
+
+    // ---------- Резервная копия ----------
+
+    function backupMsg(text, ok) {
+      var el = $('backup-msg');
+      el.textContent = text;
+      el.className = 'text-xs mt-2 ' + (ok ? 'text-emerald-700' : 'text-red-600');
+    }
+
+    function exportBackup() {
+      try {
+        var payload = {
+          app: 'nutriplan',
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          profile: state.profile,
+          foods: state.foods,
+          log: state.log
+        };
+        var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'nutriplan-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+        backupMsg('Файл сохранён в «Загрузки».', true);
+      } catch (e) {
+        backupMsg('Не удалось создать файл.', false);
+      }
+    }
+
+    function validFood(f) {
+      return f && typeof f.name === 'string' && isFinite(f.kcal) &&
+        isFinite(f.p) && isFinite(f.f) && isFinite(f.c) && f.id !== undefined;
+    }
+
+    function validEntry(e) {
+      return e && typeof e.name === 'string' && isFinite(e.grams) &&
+        isFinite(e.kcal) && isFinite(e.p) && isFinite(e.f) && isFinite(e.c);
+    }
+
+    function importBackup(input) {
+      var file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+
+      var reader = new FileReader();
+      reader.onerror = function() { backupMsg('Не удалось прочитать файл.', false); };
+      reader.onload = function() {
+        try {
+          var data = JSON.parse(reader.result);
+          if (!data || data.app !== 'nutriplan' || !data.profile || !Array.isArray(data.foods) || !data.log) {
+            throw new Error('format');
+          }
+          var foods = data.foods.filter(validFood);
+          if (foods.length === 0) throw new Error('foods');
+
+          var log = {};
+          for (var meal in MEAL_NAMES) {
+            log[meal] = Array.isArray(data.log[meal]) ? data.log[meal].filter(validEntry) : [];
+          }
+
+          if (!confirm('Заменить текущие данные данными из файла?')) return;
+
+          var pr = data.profile;
+          state.profile = {
+            gender: pr.gender === 'female' ? 'female' : 'male',
+            age: isFinite(pr.age) ? +pr.age : 35,
+            height: isFinite(pr.height) ? +pr.height : 188,
+            weight: isFinite(pr.weight) ? +pr.weight : 85,
+            activity: isFinite(pr.activity) ? +pr.activity : 1.375,
+            goal: isFinite(pr.goal) ? +pr.goal : 1
+          };
+          state.foods = foods;
+          state.log = log;
+          persist();
+          location.reload();
+        } catch (e) {
+          backupMsg('Файл не подходит: это не резервная копия NutriPlan.', false);
+        }
+      };
+      reader.readAsText(file);
     }
 
     init();

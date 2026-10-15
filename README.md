@@ -1,1 +1,0 @@
-# kbju-calc

@@ -137,13 +137,23 @@
       </div>
 
       <div class="flex flex-col sm:flex-row gap-2 mb-4">
-        <select id="food-select" class="flex-1 p-2.5 border rounded-xl bg-slate-50 text-sm"></select>
+        <select id="food-select" onchange="onFoodChange()" class="flex-1 p-2.5 border rounded-xl bg-slate-50 text-sm"></select>
         <div class="flex gap-2">
           <input type="number" id="food-grams" value="150" placeholder="Вес (г)" class="w-28 p-2.5 border rounded-xl bg-slate-50 text-sm">
           <button type="button" onclick="addEntry()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-xl text-sm transition flex-1 sm:flex-none">
             + Добавить
           </button>
         </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-2 mb-3 text-xs text-slate-500">
+        <div id="piece-box" class="items-center gap-2" style="display:none">
+          <span id="piece-hint"></span>
+          <label class="flex items-center gap-1">Штук:
+            <input type="number" id="food-qty" value="1" min="0.5" step="0.5" oninput="onQtyChange()" class="w-16 p-1.5 border rounded-lg bg-slate-50">
+          </label>
+        </div>
+        <button type="button" id="btn-del-food" onclick="deleteSelectedFood()" class="text-red-500 underline ml-auto" style="display:none">Удалить из списка</button>
       </div>
 
       <div id="meal-list" class="space-y-2 text-sm"></div>
@@ -187,6 +197,27 @@
       </button>
     </section>
 
+    <!-- Блок: Составное блюдо -->
+    <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+      <h2 class="text-base font-bold mb-1">🧩 Составное блюдо</h2>
+      <p class="text-xs text-slate-500 mb-3">Соберите блюдо из продуктов вашего списка, например хлеб + масло + ветчина = бутерброд. Набор ингредиентов — это <b>одна штука (порция)</b>. Потом блюдо добавляется в дневник по штукам.</p>
+
+      <input type="text" id="comp-name" placeholder="Название, например: Бутерброд с ветчиной" autocomplete="off" class="w-full p-2.5 border rounded-xl bg-slate-50 text-sm mb-2">
+
+      <div class="flex gap-2 mb-2">
+        <select id="comp-food" class="flex-1 min-w-0 p-2.5 border rounded-xl bg-slate-50 text-sm"></select>
+        <input type="number" id="comp-grams" value="30" placeholder="г" class="w-20 p-2.5 border rounded-xl bg-slate-50 text-sm">
+        <button type="button" onclick="addCompItem()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 rounded-xl text-sm transition">+</button>
+      </div>
+
+      <div id="comp-list" class="space-y-1.5 text-sm mb-2"></div>
+
+      <button type="button" onclick="saveComposite()" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition">
+        Сохранить блюдо в мой список
+      </button>
+      <div id="comp-msg" class="text-xs mt-2"></div>
+    </section>
+
     <!-- Блок: Последние 7 дней -->
     <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
       <div class="flex justify-between items-center mb-3">
@@ -227,10 +258,26 @@
       { id: 11, name: 'Банан', kcal: 96, p: 1.5, f: 0.5, c: 21.0 },
       { id: 12, name: 'Яблоко', kcal: 47, p: 0.4, f: 0.4, c: 9.8 },
       { id: 13, name: 'Огурцы / Помидоры (салат)', kcal: 20, p: 0.8, f: 0.2, c: 3.5 },
-      { id: 14, name: 'Масло подсолнечное / оливковое', kcal: 899, p: 0, f: 99.9, c: 0 }
+      { id: 14, name: 'Масло подсолнечное / оливковое', kcal: 899, p: 0, f: 99.9, c: 0 },
+      { id: 15, name: 'Ветчина свиная', kcal: 279, p: 22.6, f: 20.9, c: 0 },
+      { id: 16, name: 'Ветчина куриная / индюшиная', kcal: 120, p: 17.0, f: 5.0, c: 1.5 },
+      { id: 17, name: 'Хлеб белый / батон', kcal: 262, p: 7.5, f: 2.9, c: 51.4 },
+      { id: 18, name: 'Масло сливочное 82.5%', kcal: 748, p: 0.6, f: 82.5, c: 0.8 },
+      { id: 19, name: 'Колбаса вареная (Докторская)', kcal: 257, p: 12.8, f: 22.2, c: 1.5 }
     ];
 
     var smartCatalog = [
+      { name: 'Ветчина свиная', kcal: 279, p: 22.6, f: 20.9, c: 0 },
+      { name: 'Ветчина куриная / индюшиная', kcal: 120, p: 17.0, f: 5.0, c: 1.5 },
+      { name: 'Хлеб белый / батон', kcal: 262, p: 7.5, f: 2.9, c: 51.4 },
+      { name: 'Хлеб ржаной (бородинский)', kcal: 208, p: 6.9, f: 1.3, c: 40.9 },
+      { name: 'Бутерброд с ветчиной и маслом (1 шт ≈ 65 г)', kcal: 308, p: 14.0, f: 17.4, c: 23.8, alias: 'хлеб с ветчиной сэндвич бутер' },
+      { name: 'Бутерброд с ветчиной и сыром (1 шт ≈ 75 г)', kcal: 318, p: 15.3, f: 19.2, c: 20.5, alias: 'хлеб с ветчиной и сыром сэндвич бутер' },
+      { name: 'Бутерброд с маслом (1 шт ≈ 40 г)', kcal: 384, p: 5.8, f: 22.8, c: 38.7, alias: 'хлеб с маслом сэндвич бутер' },
+      { name: 'Бутерброд с сыром (1 шт ≈ 50 г)', kcal: 297, p: 14.1, f: 13.0, c: 30.8, alias: 'хлеб с сыром сэндвич бутер' },
+      { name: 'Бутерброд с колбасой и маслом (1 шт ≈ 60 г)', kcal: 300, p: 9.1, f: 17.5, c: 26.3, alias: 'хлеб с колбасой сэндвич бутер' },
+      { name: 'Чай без сахара', kcal: 1, p: 0, f: 0, c: 0.2 },
+      { name: 'Мёд', kcal: 329, p: 0.8, f: 0, c: 81.5 },
       { name: 'Картошка жареная (картофель жареный)', kcal: 192, p: 2.8, f: 9.5, c: 24.0 },
       { name: 'Картофельное пюре (с молоком и маслом)', kcal: 106, p: 2.1, f: 4.2, c: 14.7 },
       { name: 'Картошка фри', kcal: 312, p: 3.4, f: 15.0, c: 41.0 },
@@ -348,6 +395,13 @@
       } catch (e) {
         console.warn('Восстановлены настройки по умолчанию');
       }
+
+      // Добавляем в сохранённый список новые стандартные продукты (если их там ещё нет)
+      defaultFoods.forEach(function(d) {
+        var found = false;
+        state.foods.forEach(function(f) { if (String(f.id) === String(d.id)) found = true; });
+        if (!found) state.foods.push(d);
+      });
 
       $('gender').value = state.profile.gender || 'male';
       $('age').value = state.profile.age || 35;
@@ -474,10 +528,12 @@
       var html = '';
       for (var i = 0; i < state.foods.length; i++) {
         var f = state.foods[i];
-        html += '<option value="' + esc(f.id) + '">' + esc(f.name) + ' — ' + esc(f.kcal) + ' ккал</option>';
+        html += '<option value="' + esc(f.id) + '">' + esc(f.name) + ' — ' + Math.round(f.kcal) + ' ккал</option>';
       }
       sel.innerHTML = html;
+      $('comp-food').innerHTML = html;
       if (selectId !== undefined) sel.value = String(selectId);
+      onFoodChange();
     }
 
     function addEntry() {
@@ -568,9 +624,8 @@
         return;
       }
 
-      var matches = smartCatalog.filter(function(item) {
-        return item.name.toLowerCase().indexOf(q) !== -1;
-      });
+      var found = searchCatalog(q);
+      var matches = found.list;
 
       if (matches.length > 0) {
         // Не затираем значения, которые пользователь уже ввёл руками
@@ -578,7 +633,9 @@
           var best = matches[0];
           fillFields(best.name, best.kcal, best.p, best.f, best.c, false);
         }
-        renderSuggestions(matches, '⚡ Найдено в быстрой базе (нажмите для выбора):');
+        renderSuggestions(matches, found.exact
+          ? '⚡ Найдено в быстрой базе (нажмите для выбора):'
+          : '⚡ Точного совпадения нет, похожие варианты:');
       } else {
         box.innerHTML = '<div class="p-2 text-slate-500">В быстрой базе не найдено. Нажмите <b>«🌐 Найти в сети»</b> справа!</div>';
         box.classList.remove('hidden');
@@ -695,6 +752,182 @@
       $('new-c').value = '';
       $('search-results').classList.add('hidden');
       fieldsTouched = false;
+    }
+
+    // ---------- Поиск по словам ----------
+
+    var STOP_WORDS = { 'с': 1, 'со': 1, 'и': 1, 'на': 1, 'из': 1, 'в': 1, 'по': 1, 'без': 1 };
+
+    function normText(s) {
+      return String(s).toLowerCase().replace(/ё/g, 'е');
+    }
+
+    // Слова запроса, обрезанные до основы (ветчиной → ветчин, хлеба → хлеб)
+    function queryStems(q) {
+      return normText(q).split(/[^а-яa-z0-9%]+/).filter(function(t) {
+        return t && !STOP_WORDS[t];
+      }).map(function(t) {
+        if (t.length > 5) return t.slice(0, t.length - 2);
+        if (t.length > 4) return t.slice(0, t.length - 1);
+        return t;
+      });
+    }
+
+    function searchCatalog(q) {
+      var stems = queryStems(q);
+      if (stems.length === 0) return { list: [], exact: false };
+
+      var all = [], partial = [];
+      smartCatalog.forEach(function(item) {
+        var name = normText(item.name + ' ' + (item.alias || ''));
+        var hits = 0;
+        stems.forEach(function(s) { if (name.indexOf(s) !== -1) hits++; });
+        if (hits === stems.length) all.push(item);
+        else if (hits > 0) partial.push({ item: item, hits: hits });
+      });
+
+      if (all.length > 0) return { list: all, exact: true };
+
+      partial.sort(function(a, b) { return b.hits - a.hits; });
+      return { list: partial.slice(0, 10).map(function(x) { return x.item; }), exact: false };
+    }
+
+    // ---------- Штуки и удаление продукта из списка ----------
+
+    function selectedFood() {
+      var id = $('food-select').value;
+      for (var i = 0; i < state.foods.length; i++) {
+        if (String(state.foods[i].id) === String(id)) return state.foods[i];
+      }
+      return null;
+    }
+
+    function isCustomFood(f) {
+      return !!f && String(f.id).charAt(0) === 'c';
+    }
+
+    function onFoodChange() {
+      var f = selectedFood();
+      var hasPiece = !!f && isFinite(f.piece) && f.piece > 0;
+      $('piece-box').style.display = hasPiece ? 'flex' : 'none';
+      if (hasPiece) {
+        $('food-qty').value = 1;
+        $('food-grams').value = Math.round(f.piece);
+        $('piece-hint').textContent = '1 шт = ' + Math.round(f.piece) + ' г';
+      }
+      $('btn-del-food').style.display = isCustomFood(f) ? 'inline' : 'none';
+    }
+
+    function onQtyChange() {
+      var f = selectedFood();
+      var q = parseFloat($('food-qty').value);
+      if (f && f.piece > 0 && q > 0) $('food-grams').value = Math.round(f.piece * q);
+    }
+
+    function deleteSelectedFood() {
+      var f = selectedFood();
+      if (!isCustomFood(f)) return;
+      if (!confirm('Удалить «' + f.name + '» из списка продуктов? Записи в дневнике сохранятся.')) return;
+      state.foods = state.foods.filter(function(x) { return String(x.id) !== String(f.id); });
+      persist();
+      renderFoodSelect();
+    }
+
+    // ---------- Составное блюдо ----------
+
+    var compItems = [];
+
+    function compMsg(text, ok) {
+      var el = $('comp-msg');
+      el.textContent = text;
+      el.className = 'text-xs mt-2 ' + (ok ? 'text-emerald-700' : 'text-red-600');
+    }
+
+    function addCompItem() {
+      var id = $('comp-food').value;
+      var g = num('comp-grams', 0);
+      if (g <= 0) {
+        compMsg('Введите вес ингредиента в граммах.', false);
+        return;
+      }
+      var food = null;
+      for (var i = 0; i < state.foods.length; i++) {
+        if (String(state.foods[i].id) === String(id)) { food = state.foods[i]; break; }
+      }
+      if (!food) return;
+      var k = g / 100;
+      compItems.push({ name: food.name, grams: g, kcal: food.kcal * k, p: food.p * k, f: food.f * k, c: food.c * k });
+      compMsg('', true);
+      renderComp();
+    }
+
+    function removeCompItem(i) {
+      compItems.splice(i, 1);
+      renderComp();
+    }
+
+    function compTotals() {
+      var t = { grams: 0, kcal: 0, p: 0, f: 0, c: 0 };
+      for (var i = 0; i < compItems.length; i++) {
+        t.grams += compItems[i].grams;
+        t.kcal += compItems[i].kcal;
+        t.p += compItems[i].p;
+        t.f += compItems[i].f;
+        t.c += compItems[i].c;
+      }
+      return t;
+    }
+
+    function renderComp() {
+      var box = $('comp-list');
+      if (compItems.length === 0) {
+        box.innerHTML = '';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < compItems.length; i++) {
+        var it = compItems[i];
+        html += '<div class="flex justify-between items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-100">' +
+          '<span class="min-w-0 truncate">' + esc(it.name) + ' <span class="text-slate-400">· ' + esc(it.grams) + ' г · ' + Math.round(it.kcal) + ' ккал</span></span>' +
+          '<button type="button" onclick="removeCompItem(' + i + ')" class="text-slate-400 hover:text-red-600 px-2" aria-label="Убрать">✕</button>' +
+        '</div>';
+      }
+      var t = compTotals();
+      html += '<div class="text-xs text-slate-600 text-right pt-1">Итого на 1 штуку: <b>' + Math.round(t.grams) + ' г · ' + Math.round(t.kcal) + ' ккал</b> · Б ' + round1(t.p) + ' · Ж ' + round1(t.f) + ' · У ' + round1(t.c) + '</div>';
+      box.innerHTML = html;
+    }
+
+    function saveComposite() {
+      var name = $('comp-name').value.trim();
+      if (!name) {
+        compMsg('Введите название блюда.', false);
+        return;
+      }
+      if (compItems.length === 0) {
+        compMsg('Добавьте хотя бы один ингредиент.', false);
+        return;
+      }
+      var t = compTotals();
+      if (t.grams <= 0) return;
+
+      var k = 100 / t.grams; // пересчёт на 100 г готового блюда
+      var id = 'c' + Date.now();
+      state.foods.push({
+        id: id,
+        name: name,
+        kcal: round1(t.kcal * k),
+        p: round1(t.p * k),
+        f: round1(t.f * k),
+        c: round1(t.c * k),
+        piece: Math.round(t.grams)
+      });
+      persist();
+      renderFoodSelect(id);
+
+      compItems = [];
+      $('comp-name').value = '';
+      renderComp();
+      compMsg('Блюдо «' + name + '» сохранено. Выберите его в списке дневника и укажите, сколько штук.', true);
     }
 
     // ---------- Учёт по дням ----------

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Путевые листы</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2563eb">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--fg:#14171f;--mut:#6b7280;--bd:#e3e6eb;--ac:#2563eb;--bad:#dc2626;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1218;--card:#181c25;--fg:#eef0f4;--mut:#9aa3b2;--bd:#282e3a;--ac:#5b8cff;--bad:#f87171}}
+:root[data-theme="dark"]{--bg:#0f1218;--card:#181c25;--fg:#eef0f4;--mut:#9aa3b2;--bd:#282e3a;--ac:#5b8cff;--bad:#f87171}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,Roboto,sans-serif}
+main{max-width:560px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:6px 0 12px}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+button,input{font:inherit}
+.tab,.btn{border:1px solid var(--bd);background:var(--card);color:var(--fg);border-radius:10px;padding:10px 14px;cursor:pointer}
+.tab{flex:1}.tab.on,.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+input{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--fg)}
+.full{grid-column:1/-1}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+.st{background:var(--bg);border-radius:10px;padding:8px 10px}.st b{display:block;font-size:17px}.st span{font-size:11px;color:var(--mut)}
+.bad{color:var(--bad)}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.sm{font-size:13px;color:var(--mut)}
+.acts{display:flex;flex-wrap:wrap;gap:8px}
+.msg{padding:10px;border-radius:10px;margin-bottom:10px;background:var(--card);border:1px solid var(--bd);font-size:14px}
+.tab{padding:10px 4px;font-size:14px}
+.body p{margin:6px 0}
+.day summary{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;list-style:none}
+.day summary::-webkit-details-marker{display:none}
+.day summary::after{content:"▾";color:var(--mut)}
+.day[open] summary::after{content:"▴"}
+.day summary .sm{margin-left:auto}
+.body{margin-top:10px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<h1>⛽ Путевые листы</h1>
+<div class="tabs"><button class="tab on" id="t1">Новая запись</button><button class="tab" id="t2">Журнал</button><button class="tab" id="t3">Инструкция</button></div>
+<div id="msg" class="msg" hidden></div>
+
+<section id="v1">
+<div class="card">
+<div class="grid">
+<div class="full"><label>Дата (пусто = сегодня)</label><input id="date" type="date"></div>
+<div><label>Начальный км</label><input id="ks" inputmode="decimal"></div>
+<div><label>Конечный км</label><input id="ke" inputmode="decimal"></div>
+<div><label>Заправка, л</label><input id="fu" inputmode="decimal" value="0"></div>
+<div><label>Остаток на начало, л</label><input id="fs" inputmode="decimal" value="0"></div>
+<div><label>Часы ожидания</label><input id="hr" inputmode="decimal" value="0"></div>
+<div><label>Норма, л/100 км</label><input id="nm" inputmode="decimal" value="27"></div>
+<div><label>Норма ожидания, л/час</label><input id="nh" inputmode="decimal" value="1.37"></div>
+</div>
+<div class="stats" id="pv"></div>
+<div id="eb" class="msg" hidden></div>
+<button class="btn pri" id="save" style="width:100%">Сохранить запись</button>
+<button class="btn" id="cancel" style="width:100%;margin-top:8px" hidden>Отмена</button>
+</div>
+</section>
+
+<section id="v2" hidden>
+<details class="card day" id="tools"><summary><b>Итоги и резервная копия</b><span class="sm" id="tsum"></span></summary>
+<div class="body"><div class="stats" id="tot"></div>
+<div class="acts"><button class="btn" id="ejson">Скачать JSON</button><button class="btn" id="ecsv">Скачать Excel</button><button class="btn" id="imp">Загрузить JSON</button></div>
+<input type="file" id="file" accept=".json,application/json" hidden></div></details>
+<div class="card"><input id="q" type="search" placeholder="Поиск по дате: 22.09 или 09.2026" autocomplete="off">
+<div class="sm" id="qn" style="margin-top:6px" hidden></div>
+<div class="acts" style="margin-top:8px"><button class="btn" id="oall">Развернуть все</button><button class="btn" id="call">Свернуть все</button></div></div>
+<div id="list"></div>
+</section>
+<section id="v3" hidden>
+<details class="card day" open><summary><b>Как добавить день</b></summary><div class="body">
+<p>Вкладка «Новая запись». Начальный км и остаток топлива подставляются из прошлой записи, вводить их не нужно.</p>
+<p>1. Впишите <b>конечный км</b> (показание одометра в конце дня).<br>2. Если заправлялись, впишите <b>заправку в литрах</b>.<br>3. Если было ожидание, впишите <b>часы ожидания</b>.<br>4. Дату можно не трогать: пустая дата означает сегодня.<br>5. Нажмите «Сохранить запись».</p>
+<p>Пока вы вводите, под полями показывается пробег, расход и остаток.</p></div></details>
+
+<details class="card day"><summary><b>Как считается расход</b></summary><div class="body">
+<p><b>Расход по км</b> = пробег ÷ 100 × норма (л/100 км).<br><b>Расход по времени</b> = часы ожидания × норма ожидания (л/час).<br><b>Итого потрачено</b> = сумма двух расходов.<br><b>Остаток на конец</b> = остаток на начало + заправка − итого потрачено.</p>
+<p>Обе нормы можно менять в форме: расход на 100 км (по умолчанию 27) и расход за час ожидания (по умолчанию 1,37). Они запоминаются и подставляются в следующую запись. У каждого дня своя норма: изменение в одном дне не трогает остальные.</p></div></details>
+
+<details class="card day"><summary><b>Изменить или удалить день</b></summary><div class="body">
+<p>Вкладка «Журнал» → нажмите на строку с днём, она раскроется → «Изменить» или «Удалить».</p>
+<p>При изменении остатки топлива во всех следующих днях пересчитываются сами. Километраж следующих дней не меняется: если поправили конечный км, проверьте начальный км следующего дня.</p></div></details>
+
+<details class="card day"><summary><b>Поиск и списки</b></summary><div class="body">
+<p>Дни в журнале свёрнуты. Нажмите на день, чтобы раскрыть его. Кнопки «Развернуть все» и «Свернуть все» работают со всем списком.</p>
+<p>В поле поиска введите дату целиком или часть: <b>22.09</b> найдёт этот день, <b>09.2026</b> покажет весь месяц.</p></div></details>
+
+<details class="card day"><summary><b>Резервная копия (важно)</b></summary><div class="body">
+<p>Записи хранятся только в браузере этого телефона. Если очистить данные Chrome или сменить телефон, они пропадут.</p>
+<p><b>Сохранить:</b> «Журнал» → «Итоги и резервная копия» → «Скачать JSON». Файл отправьте себе в Telegram, на почту или в облако. Делайте это регулярно.</p>
+<p><b>Восстановить:</b> «Загрузить JSON» и выберите файл. Текущие записи при этом заменятся записями из файла.</p></div></details>
+
+<details class="card day"><summary><b>Выгрузка в Excel</b></summary><div class="body">
+<p>«Журнал» → «Итоги и резервная копия» → «Скачать Excel». Получится файл .xlsx с готовой таблицей и строкой итогов, он открывается в Excel, Google Таблицах и на телефоне. Для восстановления записей в приложении он не подходит, для этого нужен JSON.</p></div></details>
+
+<details class="card day"><summary><b>Установка на телефон</b></summary><div class="body">
+<p><b>Android (Chrome):</b> меню ⋮ → «Установить приложение».<br><b>iPhone (Safari):</b> кнопка «Поделиться» → «На экран Домой».</p>
+<p>Ссылкой на приложение можно поделиться. У каждого человека будут свои записи, вашу историю он не увидит.</p></div></details>
+
+<details class="card day"><summary><b>Если что-то не обновилось</b></summary><div class="body">
+<p>Полностью закройте приложение и откройте снова. Обновления подтягиваются сами.</p>
+<p>Не очищайте данные сайта в настройках Chrome без резервной копии: вместе с кэшем сотрутся записи.</p></div></details>
+</section>
+</main>
+<script>
+var KEY="waybill-path-log-v1",NH=1.37,H=[],EI=-1;
+var $=function(i){return document.getElementById(i)};
+function rd(v,d){var f=Math.pow(10,d);return Math.round((v+Number.EPSILON)*f)/f}
+function num(s){s=String(s).trim().replace(",",".");if(!s)return null;var v=Number(s);return isFinite(v)?v:null}
+function today(){var d=new Date();return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear()}
+function fmtDate(v){var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v||"");return m?m[3]+"."+m[2]+"."+m[1]:""}
+function gn(r){return isFinite(r.nh)&&r.nh!==null?r.nh:NH}
+function calc(d){var dist=rd(d.ke-d.ks,1),fk=rd(dist/100*d.nm,2),fh=rd(d.hr*d.nh,2),t=rd(fk+fh,2);
+return{date:d.date,ks:d.ks,ke:d.ke,dist:dist,fuel:d.fu,fs:d.fs,fk:fk,fh:fh,tot:t,fe:rd(d.fs+d.fu-t,2),hr:d.hr,nm:d.nm,nh:d.nh}}
+function recalc(a,i){var f=a[i].fs;for(var k=i;k<a.length;k++){var r=a[k];r.fs=rd(f,2);r.fk=rd(r.dist/100*r.nm,2);r.nh=gn(r);r.fh=rd(r.hr*r.nh,2);r.tot=rd(r.fk+r.fh,2);r.fe=rd(f+r.fuel-r.tot,2);f=r.fe}return a}
+function msg(t,bad){var m=$("msg");m.textContent=t;m.hidden=!t;m.className="msg"+(bad?" bad":"")}
+/* ---- storage: localStorage + IndexedDB, берём более полный ---- */
+function lsGet(k){try{var p=JSON.parse(localStorage.getItem(k));return Array.isArray(p)?p:null}catch(e){return null}}
+function idb(){return new Promise(function(ok){try{var r=indexedDB.open("waybill-db",1);r.onupgradeneeded=function(){r.result.createObjectStore("kv")};r.onsuccess=function(){ok(r.result)};r.onerror=function(){ok(null)}}catch(e){ok(null)}})}
+function idbGet(){return idb().then(function(db){return new Promise(function(ok){if(!db)return ok(null);try{var q=db.transaction("kv").objectStore("kv").get(KEY);q.onsuccess=function(){ok(Array.isArray(q.result)?q.result:null)};q.onerror=function(){ok(null)}}catch(e){ok(null)}})})}
+function idbPut(a){return idb().then(function(db){return new Promise(function(ok){if(!db)return ok(false);try{var t=db.transaction("kv","readwrite");t.objectStore("kv").put(a,KEY);t.oncomplete=function(){ok(true)};t.onerror=t.onabort=function(){ok(false)}}catch(e){ok(false)}})})}
+function persist(a){H=a;var ok=false;try{var p=localStorage.getItem(KEY);if(p)localStorage.setItem(KEY+"-prev",p);localStorage.setItem(KEY,JSON.stringify(a));ok=true}catch(e){}
+return idbPut(a).then(function(o){if(!ok&&!o)msg("Не удалось сохранить в браузере. Скачайте JSON, чтобы не потерять данные.",true)})}
+function load(){return idbGet().then(function(x){var c=[lsGet(KEY),x,lsGet(KEY+"-prev")].filter(function(l){return l&&l.length});
+var b=c.reduce(function(a,l){return l.length>a.length?l:a},[]);if(b.length){try{localStorage.setItem(KEY,JSON.stringify(b))}catch(e){}idbPut(b)}return b})}
+/* ---- UI ---- */
+function draft(){var ks=num($("ks").value),ke=num($("ke").value),fu=num($("fu").value),fs=num($("fs").value),hr=num($("hr").value),nm=num($("nm").value),nh=num($("nh").value);
+if([ks,ke,fu,fs,hr,nm,nh].some(function(v){return v===null}))return null;return{date:fmtDate($("date").value)||today(),ks:ks,ke:ke,fu:fu,fs:fs,hr:hr,nm:nm,nh:nh}}
+function st(l,v,w){return'<div class="st"><span>'+l+'</span><b class="'+(w?"bad":"")+'">'+v+"</b></div>"}
+function preview(){var d=draft();if(!d||d.ke<d.ks){$("pv").innerHTML="";return null}var r=calc(d);
+$("pv").innerHTML=st("Пройдено",r.dist+" км")+st("Расход",r.tot+" л")+st("По км / часы",r.fk+" / "+r.fh)+st("Остаток",r.fe+" л",r.fe<0);return r}
+function prefill(){var l=H[H.length-1];if(l){$("ks").value=l.ke;$("fs").value=l.fe;$("nm").value=l.nm;$("nh").value=gn(l)}$("ke").value="";$("fu").value="0";$("hr").value="0";$("date").value="";preview()}
+function render(){var s=H.reduce(function(a,r){a.km+=r.dist;a.sp+=r.tot;return a},{km:0,sp:0}),rest=H.length?H[H.length-1].fe:0;
+$("tot").innerHTML=st("Дней",H.length)+st("Пробег",rd(s.km,1)+" км")+st("Расход",rd(s.sp,2)+" л")+st("Остаток",rest+" л");
+$("tsum").textContent=H.length+" дн. · "+rd(s.km,1)+" км · остаток "+rest+" л";
+var q=$("q").value.trim().replace(/[\/,\-]/g,"."),
+items=H.map(function(r,i){return[r,i]}).filter(function(p){return !q||String(p[0].date).indexOf(q)>-1}).reverse(),
+op=q&&items.length<=5?" open":"";
+$("qn").hidden=!q;$("qn").textContent="Найдено записей: "+items.length;
+$("list").innerHTML=items.map(function(p){var r=p[0],i=p[1];
+return'<details class="card day"'+op+'><summary><b>'+r.date+'</b><span class="sm">'+r.dist+" км · остаток "+r.fe+' л</span></summary><div class="body"><div class="sm">'+r.ks+" → "+r.ke+" км · "+r.dist+' км</div><div class="sm">Заправка '+r.fuel+" л · расход "+r.tot+' л</div><div class="sm">Ожидание: '+(r.hr>0?r.hr+" ч · "+r.fh+" л ("+gn(r)+" л/ч)":"нет")+'</div><div class="sm">Остаток: '+r.fs+" → <b"+(r.fe<0?' class="bad"':"")+">"+r.fe+' л</b></div><div class="acts" style="margin-top:10px"><button class="btn" data-edit="'+i+'">Изменить</button><button class="btn" data-del="'+i+'">Удалить</button></div></div></details>'}).join("")||'<div class="sm">'+(q?"Ничего не найдено.":"Записей пока нет.")+"</div>"}
+$("q").addEventListener("input",render);
+$("oall").onclick=function(){document.querySelectorAll("#list details").forEach(function(d){d.open=true})};
+$("call").onclick=function(){document.querySelectorAll("#list details").forEach(function(d){d.open=false})};
+function dl(name,text,type){var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){a.remove()},500)}
+function tab(n){$("v1").hidden=n!==1;$("v2").hidden=n!==2;$("v3").hidden=n!==3;$("t1").className="tab"+(n===1?" on":"");$("t2").className="tab"+(n===2?" on":"");$("t3").className="tab"+(n===3?" on":"")}
+["date","ks","ke","fu","fs","hr","nm","nh"].forEach(function(i){$(i).addEventListener("input",preview)});
+$("t1").onclick=function(){tab(1)};$("t3").onclick=function(){tab(3)};$("t2").onclick=function(){tab(2);render()};
+function toIso(v){var m=/^(\d{2})\.(\d{2})\.(\d{4})$/.exec(v||"");return m?m[3]+"-"+m[2]+"-"+m[1]:""}
+function setMode(){var e=EI>=0;$("save").textContent=e?"Сохранить изменения":"Сохранить запись";$("cancel").hidden=!e;$("eb").hidden=!e;if(e)$("eb").textContent="Редактирование записи за "+H[EI].date+". Остатки топлива в следующих днях пересчитаются."}
+function startEdit(i){var r=H[i];EI=i;$("date").value=toIso(r.date);$("ks").value=r.ks;$("ke").value=r.ke;$("fu").value=r.fuel;$("fs").value=r.fs;$("hr").value=r.hr;$("nm").value=r.nm;$("nh").value=gn(r);setMode();tab(1);preview();msg("");window.scrollTo(0,0)}
+$("cancel").onclick=function(){EI=-1;setMode();prefill();tab(2);render()};
+$("save").onclick=function(){var d=draft();if(!d)return msg("Заполните все числовые поля.",true);if(d.ke<d.ks)return msg("Конечный км меньше начального.",true);
+if(EI<0){persist(H.concat([calc(d)])).then(function(){msg("Запись сохранена.");prefill();render()});return}
+var i=EI,a=H.slice();if(!fmtDate($("date").value))d.date=a[i].date;a[i]=calc(d);
+if(i+1<a.length){a[i+1].fs=a[i].fe;a=recalc(a,i+1)}
+EI=-1;setMode();persist(a).then(function(){msg("Запись за "+a[i].date+" изменена, следующие дни пересчитаны.");prefill();render();tab(2)})};
+$("list").onclick=function(e){var t=e.target,ed=t.getAttribute&&t.getAttribute("data-edit"),i=t.getAttribute&&t.getAttribute("data-del");
+if(ed!==null&&ed!==undefined){startEdit(+ed);return}
+if(i===null||i===undefined)return;i=+i;
+if(!confirm("Удалить запись за "+H[i].date+"?"))return;var n=H.filter(function(_,k){return k!==i});
+if(n.length&&i<n.length){if(i>0)n[i].fs=n[i-1].fe;n=recalc(n,i)}EI=-1;setMode();persist(n).then(function(){render();prefill()})};
+$("ejson").onclick=function(){dl("waybills.json",JSON.stringify(H,null,1),"application/json")};
+function esc(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function crc32(b){var t=crc32.t,c,r=-1,i,n,k;if(!t){t=crc32.t=[];for(n=0;n<256;n++){c=n;for(k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}}for(i=0;i<b.length;i++)r=t[(r^b[i])&255]^(r>>>8);return(r^-1)>>>0}
+function zip(files){var enc=new TextEncoder(),out=[],cd=[],off=0;
+files.forEach(function(f){var nm=enc.encode(f[0]),d=enc.encode(f[1]),crc=crc32(d),h=new DataView(new ArrayBuffer(30)),c=new DataView(new ArrayBuffer(46));
+h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(12,33,true);h.setUint32(14,crc,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,nm.length,true);
+out.push(new Uint8Array(h.buffer),nm,d);
+c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(14,33,true);c.setUint32(16,crc,true);c.setUint32(20,d.length,true);c.setUint32(24,d.length,true);c.setUint16(28,nm.length,true);c.setUint32(42,off,true);
+cd.push(new Uint8Array(c.buffer),nm);off+=30+nm.length+d.length});
+var cs=cd.reduce(function(a,x){return a+x.length},0),e=new DataView(new ArrayBuffer(22));
+e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cs,true);e.setUint32(16,off,true);
+return new Blob(out.concat(cd,[new Uint8Array(e.buffer)]),{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}
+var HD=["Дата","Нач. км","Кон. км","Пройдено км","Заправка (л)","Остаток на начало (л)","Расход по км (л)","Расход по времени (л)","Итого потрачено (л)","Остаток на конец (л)","Часы ожидания","Норма л/100км","Норма ожидания л/ч"];
+function colL(i){return String.fromCharCode(65+i)}
+function serial(v){var m=/^(\d{2})\.(\d{2})\.(\d{4})$/.exec(v||"");return m?Date.UTC(+m[3],+m[2]-1,+m[1])/86400000+25569:null}
+function cN(c,r,v,st){return typeof v==="number"&&isFinite(v)?'<c r="'+c+r+'"'+(st?' s="'+st+'"':"")+"><v>"+v+"</v></c>":""}
+function cS(c,r,v,st){return'<c r="'+c+r+'" t="inlineStr"'+(st?' s="'+st+'"':"")+"><is><t>"+esc(v)+"</t></is></c>"}
+function xlsx(){var V=H.map(function(r){return[r.ks,r.ke,r.dist,r.fuel,r.fs,r.fk,r.fh,r.tot,r.fe,r.hr,r.nm,gn(r)]}),
+rows=['<row r="1">'+HD.map(function(h,i){return cS(colL(i),1,h,2)}).join("")+"</row>"];
+H.forEach(function(r,k){var n=k+2,sd=serial(r.date);
+rows.push('<row r="'+n+'">'+(sd!==null?cN("A",n,sd,1):cS("A",n,r.date))+V[k].map(function(x,j){return cN(colL(j+1),n,x)}).join("")+"</row>")});
+if(H.length){var t=H.length+2;rows.push('<row r="'+t+'">'+cS("A",t,"Итого",2)+[3,4,6,7,8].map(function(i){var L=colL(i),sm=rd(V.reduce(function(a,v){return a+(v[i-1]||0)},0),2);
+return'<c r="'+L+t+'" s="2"><f>SUM('+L+"2:"+L+(t-1)+")</f><v>"+sm+"</v></c>"}).join("")+"</row>")}
+var X='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',M="http://schemas.openxmlformats.org/spreadsheetml/2006/main",R="http://schemas.openxmlformats.org/officeDocument/2006/relationships",P="http://schemas.openxmlformats.org/package/2006/relationships";
+return zip([
+["[Content_Types].xml",X+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+["_rels/.rels",X+'<Relationships xmlns="'+P+'"><Relationship Id="rId1" Type="'+R+'/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+["xl/workbook.xml",X+'<workbook xmlns="'+M+'" xmlns:r="'+R+'"><sheets><sheet name="Путевые листы" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+["xl/_rels/workbook.xml.rels",X+'<Relationships xmlns="'+P+'"><Relationship Id="rId1" Type="'+R+'/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="'+R+'/styles" Target="styles.xml"/></Relationships>'],
+["xl/styles.xml",X+'<styleSheet xmlns="'+M+'"><numFmts count="1"><numFmt numFmtId="164" formatCode="dd.mm.yyyy"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>'],
+["xl/worksheets/sheet1.xml",X+'<worksheet xmlns="'+M+'"><cols><col min="1" max="1" width="13" customWidth="1"/><col min="2" max="13" width="18" customWidth="1"/></cols><sheetData>'+rows.join("")+"</sheetData></worksheet>"]])}
+$("ecsv").onclick=function(){var a=document.createElement("a");a.href=URL.createObjectURL(xlsx());a.download="waybills.xlsx";document.body.appendChild(a);a.click();setTimeout(function(){a.remove()},500)};
+$("imp").onclick=function(){$("file").click()};
+$("file").onchange=function(){var f=this.files[0];if(!f)return;var fr=new FileReader();fr.onload=function(){try{var a=JSON.parse(fr.result);
+if(!Array.isArray(a))throw 0;var m=a.map(function(r){if("dist" in r){if(!isFinite(r.nm))r.nm=27;r.nh=gn(r);return r}return{date:r["Дата"],ks:r["Нач. км"],ke:r["Кон. км"],dist:r["Пройдено км"],fuel:r["Заправка (л)"],fs:r["Остаток на начало (л)"],fk:r["Расход по км (л)"],fh:r["Расход по времени (л)"],tot:r["Итого потрачено (л)"],fe:r["Остаток на конец (л)"],hr:r["Часы ожидания"],nm:(isFinite(r["Норма л/100км"])?r["Норма л/100км"]:27),nh:(isFinite(r["Норма ожидания л/ч"])?r["Норма ожидания л/ч"]:NH)}}).filter(function(r){return r.date&&isFinite(r.dist)});
+persist(m).then(function(){msg("Загружено записей: "+m.length);render();prefill()})}catch(e){msg("Не удалось прочитать файл.",true)}};fr.readAsText(f);this.value=""};
+if("serviceWorker" in navigator&&location.protocol==="https:"){var had=!!navigator.serviceWorker.controller,rl=false;
+navigator.serviceWorker.addEventListener("controllerchange",function(){if(had&&!rl){rl=true;location.reload()}});
+navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(function(){})}
+load().then(function(a){var ch=false;H=a.map(function(r){if(!(typeof r.nm==="number"&&isFinite(r.nm))){r.nm=27;ch=true}if(!(typeof r.nh==="number"&&isFinite(r.nh))){r.nh=NH;ch=true}return r});if(ch)persist(H);prefill();render();try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}});
+</script>
+</body>
+</html>
